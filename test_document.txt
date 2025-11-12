@@ -1,0 +1,8 @@
+Machine Learning and Artificial Intelligence
+
+Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data. It involves training models on datasets to make predictions or decisions without being explicitly programmed for every task.
+
+Deep learning is a subset of machine learning that uses neural networks with multiple layers to model and understand complex patterns in data. It has revolutionized fields like computer vision, natural language processing, and speech recognition.
+
+The key difference between machine learning and traditional programming is that instead of writing explicit instructions, we provide data and let the algorithm learn the patterns on its own.
+
