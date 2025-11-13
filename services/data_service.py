@@ -7,13 +7,20 @@ import wikipediaapi
 # Database Helper Class
 # ======================
 class Database:
-    def __init__(self, db_path="../data/database.db"):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    def __init__(self, db_path="data/database.db"):
+        # The path should be relative to the project root, not '..'
+        # This assumes 'data' folder is in the same directory as 'app.py'
+        db_dir = os.path.dirname(db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.create_table()
 
     def create_table(self):
+        # Step 1: Create main tables
+        
         # Documents table for reference corpus
         documents_query = """
         CREATE TABLE IF NOT EXISTS documents (
@@ -26,18 +33,6 @@ class Database:
         )
         """
         self.conn.execute(documents_query)
-        
-        # Create indexes for better performance with large datasets
-        try:
-            # Index on source for faster filtering
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source)")
-            # Index on doc_type for faster filtering
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(doc_type)")
-            # Index on created_at for time-based queries
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_created ON documents(created_at)")
-            print("✅ Database indexes created for large dataset optimization")
-        except Exception as e:
-            print(f"⚠️ Index creation warning: {str(e)}")
         
         # Plagiarism reports table
         reports_query = """
@@ -74,6 +69,70 @@ class Database:
         """
         self.conn.execute(submissions_query)
         
+        # Step 2: Create indexes for performance
+        try:
+            # Index on source for faster filtering
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source)")
+            # Index on doc_type for faster filtering
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(doc_type)")
+            # Index on created_at for time-based queries
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_created ON documents(created_at)")
+            print("✅ Database indexes created for large dataset optimization")
+        except Exception as e:
+            print(f"⚠️ Index creation warning: {str(e)}")
+        
+        # Step 3: Create the FTS5 virtual table
+        print("🚀 Initializing Full-Text Search (FTS5) table...")
+        fts_query = """
+        CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+            title, 
+            content, 
+            source, 
+            doc_type,
+            -- This links the 'rowid' of this table to the 'id' of the documents table
+            content='documents', 
+            content_rowid='id'
+        );
+        """
+        self.conn.execute(fts_query)
+
+        # Step 4: Create triggers to keep FTS table in sync (FIXED)
+        
+        # Trigger for INSERTs
+        insert_trigger_query = """
+        CREATE TRIGGER IF NOT EXISTS documents_fts_insert_sync AFTER INSERT ON documents
+        BEGIN
+            INSERT INTO documents_fts(rowid, title, content, source, doc_type)
+            VALUES (NEW.id, NEW.title, NEW.content, NEW.source, NEW.doc_type);
+        END;
+        """
+        self.conn.execute(insert_trigger_query)
+
+        # Trigger for DELETEs
+        delete_trigger_query = """
+        CREATE TRIGGER IF NOT EXISTS documents_fts_delete_sync AFTER DELETE ON documents
+        BEGIN
+            -- Delete the entry from the FTS table when a document is deleted
+            DELETE FROM documents_fts WHERE rowid = OLD.id;
+        END;
+        """
+        self.conn.execute(delete_trigger_query)
+
+        # Trigger for UPDATEs
+        update_trigger_query = """
+        CREATE TRIGGER IF NOT EXISTS documents_fts_update_sync AFTER UPDATE ON documents
+        BEGIN
+            -- Delete the old record and insert the new one to reflect the update
+            DELETE FROM documents_fts WHERE rowid = OLD.id;
+            INSERT INTO documents_fts(rowid, title, content, source, doc_type)
+            VALUES (NEW.id, NEW.title, NEW.content, NEW.source, NEW.doc_type);
+        END;
+        """
+        self.conn.execute(update_trigger_query)
+        
+        print("✅ FTS5 table and triggers created successfully.")
+        
+        # Step 5: Commit all changes
         self.conn.commit()
 
     def add_document(self, title, content, source="manual", doc_type="reference"):

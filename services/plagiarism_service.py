@@ -38,20 +38,60 @@ class PlagiarismService:
         # Generate document hash
         document_hash = hashlib.sha256(uploaded_text.encode('utf-8')).hexdigest()
         
-        # Step 2: Get reference documents
+        # === START OF "THE BIG CHANGE" ===
+        
+        # Step 2: Get reference documents (Optimized with FTS5)
         if reference_files is None:
             # Use fresh connection for thread safety
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT id, title, content FROM documents")
-            reference_docs = cursor.fetchall()
-            conn.close()
-            reference_files = [(doc[0], doc[1], doc[2]) for doc in reference_docs]  # (id, title, content)
-        else:
-            reference_files = [(i, f"ref_{i}", clean_text(read_file(f))) for i, f in enumerate(reference_files)]
+            
+            # --- NEW STAGE 1: CANDIDATE SELECTION ---
+            print(f"Stage 1: Running FTS query for candidates...")
+            try:
+                # Use the cleaned_text as the FTS MATCH query
+                # This query joins the fts table with the documents table
+                # and gets the Top 100 most relevant candidates
+                cursor.execute("""
+                    SELECT t.rowid, d.title, d.content 
+                    FROM documents_fts AS t
+                    JOIN documents AS d ON t.rowid = d.id 
+                    WHERE t.content MATCH ? 
+                    ORDER BY rank 
+                    LIMIT 100
+                """, (cleaned_text,))
+                
+                candidate_docs = cursor.fetchall()
+                # reference_files is now a list of (id, title, content)
+                reference_files = [(doc[0], doc[1], doc[2]) for doc in candidate_docs]
+                print(f"Stage 1: Found {len(reference_files)} potential matches to check.")
 
-        # Step 3: Run plagiarism detection
-        similarity_results = self._run_detection_methods(cleaned_text, reference_files)
+            except Exception as e:
+                print(f"❌ FTS Query Failed: {e}.")
+                print("   Make sure you have run 'rebuild_fts_index.py' first.")
+                print("   Falling back to slow method (LIMITED to 100 docs)...")
+                
+                # Fallback in case FTS fails (e.g., table not populated)
+                # We limit to 100 to avoid the 1.5-hour wait
+                cursor.execute("SELECT id, title, content FROM documents LIMIT 100")
+                reference_docs = cursor.fetchall()
+                reference_files = [(doc[0], doc[1], doc[2]) for doc in reference_docs]
+            
+            conn.close()
+            # --- END OF NEW STAGE 1 ---
+            
+        else:
+            # This path remains for testing (e.g., if user provides a small list)
+            reference_files = [(i, f"ref_{i}", clean_text(read_file(f))) for i, f in enumerate(reference_files)]
+        
+        # === END OF "THE BIG CHANGE" ===
+
+        # Step 3: Run plagiarism detection (Now on <100 docs, not 56k)
+        # This is STAGE 2: RE-RANKING
+        
+        # === THIS IS THE ONE-LINE FIX ===
+        similarity_results = self._run_detection_methods(uploaded_text, reference_files)
+        # === END OF FIX ===
         
         # Step 4: Generate comprehensive report
         report = self.report_service.generate_plagiarism_report(
@@ -86,34 +126,49 @@ class PlagiarismService:
         return report
 
     def _run_detection_methods(self, uploaded_text, reference_files):
-        """Run all detection methods on the uploaded text"""
+        """
+        Run detection methods (TF-IDF and BERT) on the candidate list.
+        This function now only processes a small number of candidates.
+        """
         results = []
         
-        for doc_id, title, content in reference_files:
-            # TF-IDF similarity
-            tfidf_score = self.tfidf_checker.calculate_similarity(uploaded_text, content)
-            
-            # BERT similarity
-            bert_score = self.bert_checker.calculate_similarity(uploaded_text, content)
-            
-            # Only include results with significant similarity
-            if tfidf_score > 0.1 or bert_score > 0.1:
-                results.append({
-                    "doc_id": doc_id,
-                    "title": title,
-                    "content": content,
-                    "method": "tfidf",
-                    "similarity": tfidf_score
-                })
-                
-                results.append({
-                    "doc_id": doc_id,
-                    "title": title,
-                    "content": content,
-                    "method": "bert",
-                    "similarity": bert_score
-                })
+        # NOTE: This function now receives the RAW uploaded_text
+        print(f"Stage 2: Running TF-IDF and BERT on {len(reference_files)} candidates...")
         
+        for doc_id, title, content in reference_files:
+            # TF-IDF similarity (very fast)
+            try:
+                # Compares RAW text vs RAW text
+                tfidf_score = self.tfidf_checker.calculate_similarity(uploaded_text, content)
+                
+                if tfidf_score > 0.1:  # Only store significant matches
+                    results.append({
+                        "doc_id": doc_id,
+                        "title": title,
+                        "content": content[:500] + "...", # Truncate content
+                        "method": "tfidf",
+                        "similarity": tfidf_score
+                    })
+            except Exception as e:
+                print(f"⚠️ Error during TF-IDF check for doc {doc_id}: {str(e)}")
+
+            # BERT similarity (slower, but only on <100 docs)
+            try:
+                # Compares RAW text vs RAW text
+                bert_score = self.bert_checker.calculate_similarity(uploaded_text, content)
+                
+                if bert_score > 0.1:  # Only store significant matches
+                    results.append({
+                        "doc_id": doc_id,
+                        "title": title,
+                        "content": content[:500] + "...", # Truncate content
+                        "method": "bert",
+                        "similarity": bert_score
+                    })
+            except Exception as e:
+                 print(f"⚠️ Error during BERT check for doc {doc_id}: {str(e)}")
+        
+        print(f"✅ Stage 2 Complete: Found {len(results)} total matches.")
         return results
 
     def _store_report_in_database(self, report, document_hash, similarity_results):

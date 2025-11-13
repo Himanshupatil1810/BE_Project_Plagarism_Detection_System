@@ -418,10 +418,17 @@
                 formData.append('user_id', 'web_user');
                 formData.append('store_on_blockchain', 'true');
 
+                // Create AbortController for timeout (15 minutes)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15 * 60 * 1000); // 15 minutes
+                
                 const response = await fetch(`${API_BASE}/check`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
 
                 const result = await response.json();
 
@@ -433,7 +440,13 @@
                     showError(result.error || 'An error occurred during plagiarism check');
                 }
             } catch (error) {
-                showError('Network error: ' + error.message);
+                if (error.name === 'AbortError') {
+                    showError('Request timeout: The plagiarism check is taking too long. This may be due to a large database. Please try again or contact support.');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showError('Network error: Unable to connect to the server. The request may have timed out (this can happen with large databases). Please check if the server is running and try again.');
+                } else {
+                    showError('Error: ' + error.message);
+                }
             } finally {
                 document.getElementById('loading').classList.remove('show');
                 document.getElementById('checkBtn').disabled = false;

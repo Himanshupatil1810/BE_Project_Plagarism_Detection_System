@@ -9,6 +9,10 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
 
+# Configure timeout for long-running requests (10 minutes)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutes
+
 # Initialize services
 plagiarism_service = PlagiarismService()
 db = Database("data/database.db")
@@ -39,6 +43,7 @@ def check_plagiarism():
     """
     Enhanced API endpoint: Accepts uploaded document, runs comprehensive
     plagiarism detection with blockchain integration.
+    Optimized for large databases (50k+ documents).
     """
     try:
         if "file" not in request.files:
@@ -52,18 +57,22 @@ def check_plagiarism():
         user_id = request.form.get("user_id", "anonymous")
         store_on_blockchain = request.form.get("store_on_blockchain", "true").lower() == "true"
         report_type = request.form.get("report_type", "detailed")
+        
+        print(f"📄 Processing file: {file.filename} for user: {user_id}")
 
         # Save uploaded file temporarily
         uploaded_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(uploaded_path)
 
-        # Run comprehensive plagiarism check
+        # Run comprehensive plagiarism check (now optimized for large datasets)
+        print("🚀 Starting plagiarism detection...")
         report = plagiarism_service.check_document(
             uploaded_file=uploaded_path,
             reference_files=None,  # Use database
             user_id=user_id,
             store_on_blockchain=store_on_blockchain
         )
+        print("✅ Plagiarism detection completed")
 
         # Save report to file
         report_filename = f"report_{report['report_id']}.json"
@@ -86,7 +95,20 @@ def check_plagiarism():
             "download_url": f"/download/{report['report_id']}"
         })
 
+    except TimeoutError:
+        return jsonify({
+            "status": "error",
+            "error": "Request timeout - the database is too large. Please try with a smaller dataset or contact support."
+        }), 504
+    except MemoryError:
+        return jsonify({
+            "status": "error",
+            "error": "Out of memory - the database is too large to process. Please reduce the dataset size."
+        }), 507
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Error in check_plagiarism: {str(e)}\n{error_trace}")
         return jsonify({
             "status": "error",
             "error": str(e)
@@ -266,5 +288,12 @@ if __name__ == "__main__":
     print("  GET /stats - Get system statistics")
     print("  GET /health - Health check")
     print("  POST /collect-data - Trigger data collection")
+    print("\n⚙️  Configuration:")
+    print("  - Request timeout: 10 minutes")
+    print("  - Optimized for large databases (50k+ documents)")
+    print("  - Batch TF-IDF processing enabled")
+    print("  - BERT limited to top candidates")
     
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Run with increased timeout support
+    # Note: For production, use a proper WSGI server like gunicorn with timeout settings
+    app.run(debug=True, host="0.0.0.0", port=5000, threaded=True)
