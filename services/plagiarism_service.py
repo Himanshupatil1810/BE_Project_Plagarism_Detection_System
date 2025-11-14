@@ -49,22 +49,41 @@ class PlagiarismService:
             # --- NEW STAGE 1: CANDIDATE SELECTION ---
             print(f"Stage 1: Running FTS query for candidates...")
             try:
-                # Use the cleaned_text as the FTS MATCH query
-                # This query joins the fts table with the documents table
-                # and gets the Top 100 most relevant candidates
-                cursor.execute("""
-                    SELECT t.rowid, d.title, d.content 
-                    FROM documents_fts AS t
-                    JOIN documents AS d ON t.rowid = d.id 
-                    WHERE t.content MATCH ? 
-                    ORDER BY rank 
-                    LIMIT 100
-                """, (cleaned_text,))
-                
-                candidate_docs = cursor.fetchall()
-                # reference_files is now a list of (id, title, content)
-                reference_files = [(doc[0], doc[1], doc[2]) for doc in candidate_docs]
-                print(f"Stage 1: Found {len(reference_files)} potential matches to check.")
+                tokens = [token for token in cleaned_text.split() if token]
+                # Preserve order but remove duplicates to keep the query compact
+                seen = set()
+                deduped_tokens = []
+                for token in tokens:
+                    if token not in seen:
+                        deduped_tokens.append(token)
+                        seen.add(token)
+
+                if deduped_tokens:
+                    # Use a manageable subset of tokens and OR them together so any match surfaces
+                    query_tokens = deduped_tokens[:25]
+                    fts_query = " OR ".join(f"{token}*" for token in query_tokens)
+
+                    cursor.execute("""
+                        SELECT t.rowid, d.title, d.content 
+                        FROM documents_fts AS t
+                        JOIN documents AS d ON t.rowid = d.id 
+                        WHERE documents_fts MATCH ? 
+                        ORDER BY rank 
+                        LIMIT 100
+                    """, (fts_query,))
+
+                    candidate_docs = cursor.fetchall()
+                    reference_files = [(doc[0], doc[1], doc[2]) for doc in candidate_docs]
+                    print(f"Stage 1: Found {len(reference_files)} potential matches to check using query tokens: {query_tokens}")
+                else:
+                    print("Stage 1: No usable tokens extracted from document; skipping FTS query.")
+                    reference_files = []
+
+                if not reference_files:
+                    print("Stage 1: FTS returned no candidates, falling back to direct documents sample (LIMIT 100).")
+                    cursor.execute("SELECT id, title, content FROM documents LIMIT 100")
+                    reference_docs = cursor.fetchall()
+                    reference_files = [(doc[0], doc[1], doc[2]) for doc in reference_docs]
 
             except Exception as e:
                 print(f"❌ FTS Query Failed: {e}.")
@@ -149,6 +168,7 @@ class PlagiarismService:
                         "method": "tfidf",
                         "similarity": tfidf_score
                     })
+                print(tfidf_score);
             except Exception as e:
                 print(f"⚠️ Error during TF-IDF check for doc {doc_id}: {str(e)}")
 
@@ -165,6 +185,7 @@ class PlagiarismService:
                         "method": "bert",
                         "similarity": bert_score
                     })
+                print(bert_score);
             except Exception as e:
                  print(f"⚠️ Error during BERT check for doc {doc_id}: {str(e)}")
         
