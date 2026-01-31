@@ -10,7 +10,8 @@ import platform
 
 def check_setup():
     """Check if the system is properly set up"""
-    print("🔍 Checking system setup...")
+    # ASCII-safe output for Windows terminals
+    print("[System] Checking system setup...")
     
     # Check if virtual environment exists
     if not os.path.exists("venv"):
@@ -31,12 +32,12 @@ def check_setup():
             print("❌ Failed to initialize database")
             return False
     
-    print("✅ System setup looks good!")
+    print("[System] System setup looks good!")
     return True
 
 def start_application():
     """Start the Flask application"""
-    print("🚀 Starting Plagiarism Detection System...")
+    print("[System] Starting Plagiarism Detection System...")
     
     if platform.system() == "Windows":
         python_cmd = "venv\\Scripts\\python"
@@ -52,7 +53,8 @@ def start_application():
 
 def main():
     """Main function"""
-    print("🔍 Blockchain + AI Powered Plagiarism Detection System")
+    # Use ASCII-only output for compatibility with Windows terminals
+    print("[System] Blockchain + AI Powered Plagiarism Detection System")
     print("=" * 60)
     
     if not check_setup():

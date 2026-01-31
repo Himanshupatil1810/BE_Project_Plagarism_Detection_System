@@ -5,6 +5,8 @@ from web3 import Web3
 from typing import Dict, Any, Optional
 import os
 
+from web3.middleware import geth_poa_middleware
+
 class BlockchainService:
     def __init__(self, rpc_url: str = None, private_key: str = None, contract_address: str = None):
         """
@@ -22,19 +24,22 @@ class BlockchainService:
         # Initialize Web3
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
         
-        # Contract ABI for plagiarism report storage
+        # REQUIRED for Polygon / Amoy (Proof-of-Authority chain)
+        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        # Contract ABI for plagiarism report storage.
+        # IMPORTANT: This must exactly match contracts/PlagiarismReport.sol
         self.contract_abi = [
             {
                 "inputs": [
                     {"internalType": "string", "name": "reportHash", "type": "string"},
                     {"internalType": "string", "name": "documentHash", "type": "string"},
-                    {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
-                    {"internalType": "string", "name": "metadata", "type": "string"}
+                    {"internalType": "string", "name": "metadata", "type": "string"},
                 ],
                 "name": "storeReport",
                 "outputs": [],
                 "stateMutability": "nonpayable",
-                "type": "function"
+                "type": "function",
             },
             {
                 "inputs": [
@@ -45,10 +50,10 @@ class BlockchainService:
                     {"internalType": "string", "name": "documentHash", "type": "string"},
                     {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
                     {"internalType": "string", "name": "metadata", "type": "string"},
-                    {"internalType": "bool", "name": "exists", "type": "bool"}
+                    {"internalType": "bool", "name": "exists", "type": "bool"},
                 ],
                 "stateMutability": "view",
-                "type": "function"
+                "type": "function",
             },
             {
                 "inputs": [
@@ -59,8 +64,8 @@ class BlockchainService:
                     {"internalType": "bool", "name": "isValid", "type": "bool"}
                 ],
                 "stateMutability": "view",
-                "type": "function"
-            }
+                "type": "function",
+            },
         ]
         
         if self.contract_address:
@@ -109,7 +114,7 @@ class BlockchainService:
             Transaction details or None if blockchain is not configured
         """
         if not self.contract or not self.private_key:
-            print("⚠️ Blockchain not configured. Report will be stored locally only.")
+            print("[Blockchain] Not configured. Report will be stored locally only.")
             return None
 
         try:
@@ -132,8 +137,7 @@ class BlockchainService:
             transaction = self.contract.functions.storeReport(
                 report_hash,
                 document_hash,
-                int(datetime.now().timestamp()),
-                json.dumps(metadata)
+                json.dumps(metadata),
             ).build_transaction({
                 'from': account.address,
                 'gas': 200000,
@@ -147,17 +151,18 @@ class BlockchainService:
             
             # Wait for transaction receipt
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-            
+            success = tx_receipt.status == 1
+
             return {
                 "transaction_hash": tx_hash.hex(),
                 "block_number": tx_receipt.blockNumber,
                 "report_hash": report_hash,
                 "document_hash": document_hash,
-                "status": "success"
+                "status": "success" if success else "failed",
             }
             
         except Exception as e:
-            print(f"❌ Error storing report on blockchain: {str(e)}")
+            print(f"[Blockchain] Error storing report on blockchain: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e)

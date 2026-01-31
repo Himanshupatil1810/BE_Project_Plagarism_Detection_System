@@ -47,7 +47,7 @@ class PlagiarismService:
             cursor = conn.cursor()
             
             # --- NEW STAGE 1: CANDIDATE SELECTION ---
-            print(f"Stage 1: Running FTS query for candidates...")
+            print("[Detect] Stage 1: Running FTS query for candidates...")
             try:
                 tokens = [token for token in cleaned_text.split() if token]
                 # Preserve order but remove duplicates to keep the query compact
@@ -74,19 +74,19 @@ class PlagiarismService:
 
                     candidate_docs = cursor.fetchall()
                     reference_files = [(doc[0], doc[1], doc[2]) for doc in candidate_docs]
-                    print(f"Stage 1: Found {len(reference_files)} potential matches to check using query tokens: {query_tokens}")
+                    print(f"[Detect] Stage 1: Found {len(reference_files)} potential matches using query tokens: {query_tokens}")
                 else:
-                    print("Stage 1: No usable tokens extracted from document; skipping FTS query.")
+                    print("[Detect] Stage 1: No usable tokens extracted from document; skipping FTS query.")
                     reference_files = []
 
                 if not reference_files:
-                    print("Stage 1: FTS returned no candidates, falling back to direct documents sample (LIMIT 100).")
+                    print("[Detect] Stage 1: FTS returned no candidates, falling back to direct documents sample (LIMIT 100).")
                     cursor.execute("SELECT id, title, content FROM documents LIMIT 100")
                     reference_docs = cursor.fetchall()
                     reference_files = [(doc[0], doc[1], doc[2]) for doc in reference_docs]
 
             except Exception as e:
-                print(f"❌ FTS Query Failed: {e}.")
+                print(f"[Detect] FTS query failed: {e}.")
                 print("   Make sure you have run 'rebuild_fts_index.py' first.")
                 print("   Falling back to slow method (LIMITED to 100 docs)...")
                 
@@ -152,7 +152,7 @@ class PlagiarismService:
         results = []
         
         # NOTE: This function now receives the RAW uploaded_text
-        print(f"Stage 2: Running TF-IDF and BERT on {len(reference_files)} candidates...")
+        print(f"[Detect] Stage 2: Running TF-IDF and BERT on {len(reference_files)} candidates...")
         
         for doc_id, title, content in reference_files:
             # TF-IDF similarity (very fast)
@@ -168,9 +168,9 @@ class PlagiarismService:
                         "method": "tfidf",
                         "similarity": tfidf_score
                     })
-                print(tfidf_score);
+                print(f"[Detect] TF-IDF score for doc {doc_id}: {tfidf_score}")
             except Exception as e:
-                print(f"⚠️ Error during TF-IDF check for doc {doc_id}: {str(e)}")
+                print(f"[Detect] Error during TF-IDF check for doc {doc_id}: {str(e)}")
 
             # BERT similarity (slower, but only on <100 docs)
             try:
@@ -185,11 +185,11 @@ class PlagiarismService:
                         "method": "bert",
                         "similarity": bert_score
                     })
-                print(bert_score);
+                print(f"[Detect] BERT score for doc {doc_id}: {bert_score}")
             except Exception as e:
-                 print(f"⚠️ Error during BERT check for doc {doc_id}: {str(e)}")
+                 print(f"[Detect] Error during BERT check for doc {doc_id}: {str(e)}")
         
-        print(f"✅ Stage 2 Complete: Found {len(results)} total matches.")
+        print(f"[Detect] Stage 2 complete: Found {len(results)} total matches.")
         return results
 
     def _store_report_in_database(self, report, document_hash, similarity_results):

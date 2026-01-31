@@ -135,7 +135,7 @@ python data_collector.py
 python app.py
 ```
 
-### Optional: Enable Blockchain Features
+### Optional: Enable Blockchain & IPFS Features
 
 To enable blockchain and IPFS features:
 
@@ -150,14 +150,33 @@ CONTRACT_ADDRESS=your_contract_address_here
 IPFS_URL=/ip4/127.0.0.1/tcp/5001
 ```
 
-2. **Deploy Smart Contract** (Optional):
-   - Deploy `contracts/PlagiarismReport.sol`
-   - Update `CONTRACT_ADDRESS` in `.env`
+2. **Deploy Smart Contract**:
+   - Deploy `contracts/PlagiarismReport.sol` to your target network (e.g. Polygon Amoy).
+   - Copy the deployed contract address into `CONTRACT_ADDRESS` in `.env`.
 
-3. **Start IPFS Node** (Optional):
+3. **Start IPFS Node**:
+   - Install Kubo (go-ipfs) or IPFS Desktop.
+   - Make sure the IPFS HTTP API is running on `127.0.0.1:5001` (default).
+   - For CLI Kubo:
+     ```bash
+     ipfs init        # first time only
+     ipfs daemon
+     ```
+
+4. **Verify Connectivity (Recommended)**:
+   From the project root, with the virtualenv activated:
    ```bash
-   ipfs daemon
+   python test_connections.py
    ```
+
+   Expected output when everything is correctly configured:
+   - **IPFS**:
+     - `connected: True`
+     - `version` similar to `kubo/0.39.0`
+   - **Blockchain**:
+     - `connected: True`
+     - `network_id: 80002` (for Polygon Amoy)
+     - `contract_deployed: True`
 
 ## 📚 API Documentation
 

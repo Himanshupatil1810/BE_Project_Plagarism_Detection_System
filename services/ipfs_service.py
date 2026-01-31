@@ -19,10 +19,12 @@ class IPFSService:
         """Establish connection to IPFS node."""
         try:
             self.client = ipfshttpclient.connect(self.ipfs_url)
-            print("✅ Connected to IPFS node")
+            # Keep console output ASCII-safe on Windows terminals
+            print("[IPFS] Connected to IPFS node")
         except Exception as e:
-            print(f"⚠️ Could not connect to IPFS node: {str(e)}")
-            print("📝 Reports will be stored locally only")
+            # Keep console output ASCII-safe on Windows terminals
+            print(f"[IPFS] Could not connect to IPFS node: {str(e)}")
+            print("[IPFS] Reports will be stored locally only")
             self.client = None
 
     def store_document(self, content: str, filename: str = None) -> Optional[Dict[str, Any]]:
@@ -66,7 +68,7 @@ class IPFSService:
             }
             
         except Exception as e:
-            print(f"❌ Error storing document in IPFS: {str(e)}")
+            print(f"[IPFS] Error storing document in IPFS: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e)
@@ -116,7 +118,7 @@ class IPFSService:
             }
             
         except Exception as e:
-            print(f"❌ Error storing report in IPFS: {str(e)}")
+            print(f"[IPFS] Error storing report in IPFS: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e)
@@ -141,7 +143,7 @@ class IPFSService:
             return content.decode('utf-8')
             
         except Exception as e:
-            print(f"❌ Error retrieving document from IPFS: {str(e)}")
+            print(f"[IPFS] Error retrieving document from IPFS: {str(e)}")
             return None
 
     def retrieve_report(self, ipfs_hash: str) -> Optional[Dict[str, Any]]:
@@ -164,7 +166,7 @@ class IPFSService:
             return report_data
             
         except Exception as e:
-            print(f"❌ Error retrieving report from IPFS: {str(e)}")
+            print(f"[IPFS] Error retrieving report from IPFS: {str(e)}")
             return None
 
     def pin_content(self, ipfs_hash: str) -> bool:
@@ -184,7 +186,7 @@ class IPFSService:
             self.client.pin.add(ipfs_hash)
             return True
         except Exception as e:
-            print(f"❌ Error pinning content in IPFS: {str(e)}")
+            print(f"[IPFS] Error pinning content in IPFS: {str(e)}")
             return False
 
     def get_ipfs_info(self) -> Dict[str, Any]:

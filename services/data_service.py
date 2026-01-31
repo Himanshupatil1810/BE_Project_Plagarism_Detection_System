@@ -77,12 +77,12 @@ class Database:
             self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(doc_type)")
             # Index on created_at for time-based queries
             self.conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_created ON documents(created_at)")
-            print("✅ Database indexes created for large dataset optimization")
+            print("[DB] Database indexes created for large dataset optimization")
         except Exception as e:
-            print(f"⚠️ Index creation warning: {str(e)}")
+            print(f"[DB] Index creation warning: {str(e)}")
         
         # Step 3: Create the FTS5 virtual table
-        print("🚀 Initializing Full-Text Search (FTS5) table...")
+        print("[DB] Initializing Full-Text Search (FTS5) table...")
         fts_query = """
         CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
             title, 
@@ -130,7 +130,7 @@ class Database:
         """
         self.conn.execute(update_trigger_query)
         
-        print("✅ FTS5 table and triggers created successfully.")
+        print("[DB] FTS5 table and triggers created successfully.")
         
         # Step 5: Commit all changes
         self.conn.commit()
@@ -227,14 +227,14 @@ class DataCollector:
                     source="wikipedia",
                     doc_type="reference"
                 )
-                print(f"✅ Added Wikipedia article: {page.title}")
+                print(f"[Data] Added Wikipedia article: {page.title}")
             else:
                 print(f"❌ Page not found: {topic}")
 
     def add_from_pan_dataset(self, dataset_path="../data/raw/pan_dataset.csv"):
         """Load PAN dataset and store it"""
         if not os.path.exists(dataset_path):
-            print("❌ PAN dataset not found at", dataset_path)
+            print("[Data] PAN dataset not found at", dataset_path)
             return
 
         df = pd.read_csv(dataset_path)
@@ -249,7 +249,7 @@ class DataCollector:
                     source="PAN",
                     doc_type="reference"
                 )
-        print(f"✅ Added {len(df)} documents from PAN dataset")
+        print(f"[Data] Added {len(df)} documents from PAN dataset")
 
     def add_from_arxiv(self, categories, max_results=50):
         """Fetch papers from arXiv and store them"""
@@ -257,7 +257,7 @@ class DataCollector:
             import arxiv
             
             for category in categories:
-                print(f"  📄 Fetching papers from {category}...")
+                print(f"[Data] Fetching papers from {category}...")
                 
                 # Search for papers in the category
                 search = arxiv.Search(
@@ -286,15 +286,15 @@ class DataCollector:
                         count += 1
                         
                     except Exception as e:
-                        print(f"    ⚠️ Error processing paper: {str(e)}")
+                        print(f"[Data] Error processing paper: {str(e)}")
                         continue
                 
-                print(f"    ✅ Added {count} papers from {category}")
+                print(f"[Data] Added {count} papers from {category}")
                 
         except ImportError:
-            print("❌ arxiv package not installed. Install with: pip install arxiv")
+            print("[Data] arxiv package not installed. Install with: pip install arxiv")
         except Exception as e:
-            print(f"❌ Error fetching arXiv papers: {str(e)}")
+            print(f"[Data] Error fetching arXiv papers: {str(e)}")
 
     def add_sample_academic_papers(self):
         """Add sample academic papers for testing"""
@@ -329,4 +329,4 @@ class DataCollector:
                 doc_type="reference"
             )
         
-        print(f"✅ Added {len(sample_papers)} sample academic papers")
+        print(f"[Data] Added {len(sample_papers)} sample academic papers")

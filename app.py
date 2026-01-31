@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from services.plagiarism_service import PlagiarismService
 from services.data_service import Database
 import os
@@ -38,7 +38,8 @@ def home():
         }
     })
 
-@app.route("/check", methods=["POST"])
+@app.route("/check", methods=["POST", "OPTIONS"])
+@cross_origin()  # Ensure CORS headers for POST + preflight from browser
 def check_plagiarism():
     """
     Enhanced API endpoint: Accepts uploaded document, runs comprehensive
@@ -58,21 +59,22 @@ def check_plagiarism():
         store_on_blockchain = request.form.get("store_on_blockchain", "true").lower() == "true"
         report_type = request.form.get("report_type", "detailed")
         
-        print(f"📄 Processing file: {file.filename} for user: {user_id}")
+        # ASCII-safe logging for Windows terminals
+        print(f"[App] Processing file: {file.filename} for user: {user_id}")
 
         # Save uploaded file temporarily
         uploaded_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(uploaded_path)
 
         # Run comprehensive plagiarism check (now optimized for large datasets)
-        print("🚀 Starting plagiarism detection...")
+        print("[App] Starting plagiarism detection...")
         report = plagiarism_service.check_document(
             uploaded_file=uploaded_path,
             reference_files=None,  # Use database
             user_id=user_id,
             store_on_blockchain=store_on_blockchain
         )
-        print("✅ Plagiarism detection completed")
+        print("[App] Plagiarism detection completed")
 
         # Save report to file
         report_filename = f"report_{report['report_id']}.json"
@@ -82,7 +84,8 @@ def check_plagiarism():
 
         # Clean up uploaded file
         os.remove(uploaded_path)
-
+        # print(report.get("blockchain_verification"));
+        print(report.get("ipfs_storage"));
         return jsonify({
             "status": "success",
             "report_id": report["report_id"],
@@ -108,7 +111,7 @@ def check_plagiarism():
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"❌ Error in check_plagiarism: {str(e)}\n{error_trace}")
+        print(f"[App] Error in check_plagiarism: {str(e)}\n{error_trace}")
         return jsonify({
             "status": "error",
             "error": str(e)
@@ -278,8 +281,9 @@ def internal_error(error):
     }), 500
 
 if __name__ == "__main__":
-    print("🚀 Starting Blockchain + AI Powered Plagiarism Detection System")
-    print("📊 Available endpoints:")
+    # ASCII-safe startup messages for Windows terminals
+    print("[App] Starting Blockchain + AI Powered Plagiarism Detection System")
+    print("[App] Available endpoints:")
     print("  POST /check - Check document for plagiarism")
     print("  GET /verify/<report_hash> - Verify report on blockchain")
     print("  GET /reports/<user_id> - Get user reports")
@@ -288,11 +292,11 @@ if __name__ == "__main__":
     print("  GET /stats - Get system statistics")
     print("  GET /health - Health check")
     print("  POST /collect-data - Trigger data collection")
-    print("\n⚙️  Configuration:")
-    print("  - Request timeout: 10 minutes")
-    print("  - Optimized for large databases (50k+ documents)")
-    print("  - Batch TF-IDF processing enabled")
-    print("  - BERT limited to top candidates")
+    print("\n[App] Configuration:")
+    print("  * Request timeout: 10 minutes")
+    print("  * Optimized for large databases (50k+ documents)")
+    print("  * Batch TF-IDF processing enabled")
+    print("  * BERT limited to top candidates (may be disabled if torch not available)")
     
     # Run with increased timeout support
     # Note: For production, use a proper WSGI server like gunicorn with timeout settings
