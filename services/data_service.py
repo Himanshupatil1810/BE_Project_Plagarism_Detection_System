@@ -159,6 +159,28 @@ class Database:
                                  metadata, blockchain_tx_hash, ipfs_hash))
         self.conn.commit()
 
+    # Updated by me
+    def update_blockchain_tx(self, report_hash, blockchain_tx_hash):
+        query = """
+            UPDATE plagiarism_reports
+            SET blockchain_tx_hash = ?
+            WHERE report_hash = ?
+        """
+        self.conn.execute(query, (blockchain_tx_hash, report_hash))
+        self.conn.commit()
+
+
+    def update_ipfs_hash(self, report_hash, ipfs_hash):
+        query = """
+            UPDATE plagiarism_reports
+            SET ipfs_hash = ?
+            WHERE report_hash = ?
+        """
+        self.conn.execute(query, (ipfs_hash, report_hash))
+        self.conn.commit()
+
+    #till here
+    
     def get_plagiarism_report(self, report_hash):
         """Get plagiarism report by hash"""
         query = "SELECT * FROM plagiarism_reports WHERE report_hash = ?"

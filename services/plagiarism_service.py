@@ -224,13 +224,19 @@ class PlagiarismService:
         """Update report with blockchain transaction info"""
         # This would update the database with blockchain transaction hash
         # Implementation depends on your database schema
-        pass
+        self.db.update_blockchain_tx(
+            report_hash=report_id,
+            blockchain_tx_hash=blockchain_result["transaction_hash"]
+        )
 
     def _update_report_with_ipfs_info(self, report_id, ipfs_result):
         """Update report with IPFS storage info"""
         # This would update the database with IPFS hash
         # Implementation depends on your database schema
-        pass
+        self.db.update_ipfs_hash(
+            report_hash=report_id,
+            ipfs_hash=ipfs_result["ipfs_hash"]
+        )
 
     def _track_user_submission(self, file_path, document_hash, user_id, report_id):
         """Track user submission in database"""
