@@ -134,17 +134,27 @@ class BlockchainService:
             account = self.w3.eth.account.from_key(self.private_key)
             nonce = self.w3.eth.get_transaction_count(account.address)
             
+            # transaction = self.contract.functions.storeReport(
+            #     report_hash,
+            #     document_hash,
+            #     json.dumps(metadata),
+            # ).build_transaction({
+            #     'from': account.address,
+            #     'gas': 200000,
+            #     'gasPrice': self.w3.eth.gas_price,
+            #     # 'gasPrice': self.w3.to_wei(5, 'gwei'),
+            #     'nonce': nonce,
+            # })
             transaction = self.contract.functions.storeReport(
                 report_hash,
                 document_hash,
                 json.dumps(metadata),
             ).build_transaction({
                 'from': account.address,
-                'gas': 200000,
-                'gasPrice': self.w3.eth.gas_price,
                 'nonce': nonce,
             })
-            
+
+            print(self.w3.eth.gas_price)
             # Sign and send transaction
             signed_txn = self.w3.eth.account.sign_transaction(transaction, self.private_key)
             tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
@@ -152,7 +162,7 @@ class BlockchainService:
             # Wait for transaction receipt
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
             success = tx_receipt.status == 1
-
+            print("Transaction hash: "+tx_hash.hex())
             return {
                 "transaction_hash": tx_hash.hex(),
                 "block_number": tx_receipt.blockNumber,

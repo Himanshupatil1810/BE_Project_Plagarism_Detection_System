@@ -106,7 +106,7 @@ class IPFSService:
             # Add to IPFS
             result = self.client.add(temp_path)
             ipfs_hash = result['Hash']
-            print(ipfs_hash)
+            print("IPFS hash: "+ipfs_hash)
             # Clean up temporary file
             os.remove(temp_path)
             
