@@ -178,6 +178,27 @@ IPFS_URL=/ip4/127.0.0.1/tcp/5001
      - `network_id: 80002` (for Polygon Amoy)
      - `contract_deployed: True`
 
+## ⚠️ Important: BERT Dependency Compatibility
+
+This project uses **Sentence-BERT** for semantic plagiarism detection.  
+Due to breaking changes in recent HuggingFace releases, **specific versions are pinned** to ensure stability.
+
+If you install dependencies manually, **DO NOT upgrade these packages**:
+
+- torch == 2.0.1
+- sentence-transformers == 2.2.2
+- transformers == 4.30.2
+- huggingface_hub == 0.14.1
+
+Upgrading these may cause errors such as:
+- `cannot import name 'cached_download'`
+- `SentenceTransformer failed to load`
+
+Always install using:
+
+```bash
+pip install -r requirements.txt
+
 ## 📚 API Documentation
 
 ### Core Endpoints
@@ -269,6 +290,25 @@ GET /stats
    curl http://localhost:5000/health
    ```
 
+## 🔍 How Verification Works
+
+1. A document is uploaded
+2. Plagiarism detection is performed (TF-IDF + BERT)
+3. A plagiarism report is generated
+4. The report is:
+   - Stored in IPFS → returns a CID
+   - Hashed using SHA-256
+5. The hash is stored on the blockchain via a smart contract
+6. Blockchain transaction hash is saved in the database
+
+### Verification Process
+- Recompute the report hash
+- Fetch on-chain record using report hash
+- Compare stored hash with recomputed hash
+- If they match → report integrity is verified
+
+This ensures **tamper-proof plagiarism verification**.
+
 ## 🧪 Testing
 
 ### Run Unit Tests
@@ -301,9 +341,9 @@ coverage report
 - **Large documents** (> 10MB): < 2 minutes
 
 ### Blockchain Integration
-- **Transaction time**: 2-5 minutes (Polygon)
-- **Gas cost**: ~0.001 MATIC per report
-- **Storage cost**: ~0.0001 MATIC per report
+- **Transaction time**: Depends on testnet load (typically 10–60 seconds)
+- **Gas cost**: Testnet MATIC only (no real cost)
+- **On-chain storage**: Hashes + metadata only
 
 ## 🔒 Security Features
 

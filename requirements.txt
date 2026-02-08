@@ -16,34 +16,78 @@
 # arxiv
 # cryptography
 # Web Backend
+
+
+# flask==3.0.0
+# flask-cors==4.0.0
+# requests==2.31.0
+
+# # AI / NLP
+# scikit-learn==1.4.0
+# nltk==3.8.1
+# spacy==3.7.2
+# torch>=2.0.0
+# transformers==4.36.2
+# sentence-transformers==2.2.2
+
+# # Document Parsing
+# pdfplumber==0.10.3
+# python-docx==1.1.0
+
+# # Blockchain & IPFS
+# web3==6.12.0
+# ipfshttpclient==0.8.0a2
+# cryptography==41.0.7
+
+# # Data & Datasets
+# # Pin numpy to a version compatible with pandas 2.1.4 and scikit-learn 1.4.0
+# numpy>=1.23,<1.27
+# pandas==2.1.4
+# wikipedia-api==0.6.0
+# arxiv==1.4.7
+
+# # Utilities
+# python-dotenv==1.0.1
+# tqdm==4.66.1
+
+# =========================
+# Core Web Framework
+# =========================
 flask==3.0.0
 flask-cors==4.0.0
 requests==2.31.0
+python-dotenv==1.0.1
 
-# AI / NLP
+# =========================
+# AI / NLP (PINNED FOR BERT STABILITY)
+# =========================
+torch==2.0.1
+sentence-transformers==2.2.2
+transformers==4.30.2
+huggingface_hub==0.14.1
+
 scikit-learn==1.4.0
 nltk==3.8.1
 spacy==3.7.2
-torch>=2.0.0
-transformers==4.36.2
-sentence-transformers==2.2.2
+tqdm==4.66.1
 
+# =========================
 # Document Parsing
+# =========================
 pdfplumber==0.10.3
 python-docx==1.1.0
 
+# =========================
 # Blockchain & IPFS
+# =========================
 web3==6.12.0
 ipfshttpclient==0.8.0a2
 cryptography==41.0.7
 
+# =========================
 # Data & Datasets
-# Pin numpy to a version compatible with pandas 2.1.4 and scikit-learn 1.4.0
+# =========================
 numpy>=1.23,<1.27
 pandas==2.1.4
 wikipedia-api==0.6.0
 arxiv==1.4.7
-
-# Utilities
-python-dotenv==1.0.1
-tqdm==4.66.1
