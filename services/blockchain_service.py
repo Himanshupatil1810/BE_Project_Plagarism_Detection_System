@@ -118,8 +118,17 @@ class BlockchainService:
             return None
 
         try:
-            # Generate hashes
-            report_hash = self.generate_report_hash(report_data)
+            # Use the same identifier that we store in the database
+            # (the human‑readable PLAG_... report_id) as the on‑chain key
+            # so that `plagiarism_reports.report_hash` and the blockchain
+            # reportHash match.
+            report_hash = report_data.get("report_id")
+            if not report_hash:
+                # Fallback: if for some reason report_id is missing,
+                # keep the previous behaviour and derive a deterministic hash
+                report_hash = self.generate_report_hash(report_data)
+
+            # Always hash the raw document content for integrity metadata
             document_hash = self.generate_document_hash(document_content)
             
             # Prepare metadata
@@ -134,17 +143,7 @@ class BlockchainService:
             account = self.w3.eth.account.from_key(self.private_key)
             nonce = self.w3.eth.get_transaction_count(account.address)
             
-            # transaction = self.contract.functions.storeReport(
-            #     report_hash,
-            #     document_hash,
-            #     json.dumps(metadata),
-            # ).build_transaction({
-            #     'from': account.address,
-            #     'gas': 200000,
-            #     'gasPrice': self.w3.eth.gas_price,
-            #     # 'gasPrice': self.w3.to_wei(5, 'gwei'),
-            #     'nonce': nonce,
-            # })
+            print("REPORT HASH STORING ON BLOCKCHAIN: "+ report_hash)
             transaction = self.contract.functions.storeReport(
                 report_hash,
                 document_hash,
@@ -190,7 +189,8 @@ class BlockchainService:
         """
         if not self.contract:
             return {"error": "Blockchain not configured"}
-
+        # DEBUG PRINT: Check what string is actually being sent to the blockchain
+        print(f"[Debug] Querying Blockchain with Hash: {report_hash}")
         try:
             result = self.contract.functions.getReport(report_hash).call()
             document_hash, timestamp, metadata, exists = result

@@ -15,7 +15,16 @@ class Database:
             os.makedirs(db_dir, exist_ok=True)
             
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        # Use a longer timeout and WAL mode to reduce "database is locked"
+        # errors when multiple threads/processes hit SQLite.
+        self.conn = sqlite3.connect(
+            db_path,
+            check_same_thread=False,
+            timeout=30.0  # seconds
+        )
+        # Make this connection more concurrency-friendly.
+        self.conn.execute("PRAGMA journal_mode=WAL;")
+        self.conn.execute("PRAGMA busy_timeout = 5000;")  # 5 seconds
         self.create_table()
 
     def create_table(self):
@@ -221,7 +230,15 @@ class Database:
 
     def get_connection(self):
         """Get a fresh database connection for thread safety"""
-        return sqlite3.connect(self.db_path, check_same_thread=False)
+        conn = sqlite3.connect(
+            self.db_path,
+            check_same_thread=False,
+            timeout=30.0  # seconds
+        )
+        # Ensure all helper connections use the same concurrency settings.
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout = 5000;")  # 5 seconds
+        return conn
     
     def close(self):
         self.conn.close()

@@ -252,14 +252,18 @@ class PlagiarismService:
 
     def verify_report(self, report_hash):
         """Verify report integrity using blockchain"""
-        # Get report from database
+        # 1. Look up the report in our database by the same identifier
+        # that we use on-chain (the PLAG_... report_id stored in
+        # `plagiarism_reports.report_hash`).
         report = self.db.get_plagiarism_report(report_hash)
         if not report:
             return {"error": "Report not found"}
-        
-        # Verify on blockchain
+
+        # 2. Ask the blockchain if a report with this identifier exists.
+        # Because `store_report_on_blockchain` now uses report_id as the
+        # on‑chain key, this value will match exactly.
         blockchain_verification = self.blockchain_service.verify_report(report_hash)
-        
+
         return {
             "report_found": True,
             "blockchain_verification": blockchain_verification,
