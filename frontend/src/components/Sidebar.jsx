@@ -43,7 +43,7 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
           <div>
             <div className="font-syne font-bold text-app leading-none" style={{ fontSize: 16 }}>
-              ChainGuard
+              IntegriChain
             </div>
             <div
               className="font-jetbrains text-app3 uppercase mt-0.5"

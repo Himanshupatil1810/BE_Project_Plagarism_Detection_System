@@ -66,7 +66,7 @@ export default function Login() {
           </div>
           <div>
             <div className="font-syne font-extrabold text-app" style={{ fontSize: 20, lineHeight: 1 }}>
-              ChainGuard
+              IntegriChain
             </div>
             <div className="font-jetbrains text-app3 uppercase mt-0.5" style={{ fontSize: 10, letterSpacing: 1 }}>
               AI Plagiarism Detection
