@@ -1,30 +1,38 @@
-import api from './axios.js'
+// CHANGE: Import analysisApi specifically from your updated axios.js
+import { analysisApi } from './axios.js';
 
-// POST /check  — multipart/form-data
+// POST /check — multipart/form-data
+// Corrected flow in plagiarismApi.js
 export const checkPlagiarism = async (file, userId) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('user_id', userId)
-  formData.append('store_on_blockchain', 'true')
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('user_id', userId); // Sending the MongoDB ID to Flask
+  formData.append('store_on_blockchain', 'true');
 
-  const { data } = await api.post('/check', formData, {
+  const { data } = await analysisApi.post('/check', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data
-}
+  });
+  return data;
+};
 
 // GET /verify/:hash
 export const verifyReport = async (reportHash) => {
-  const { data } = await api.get(`/verify/${reportHash}`)
-  return data
-}
+  // CHANGE: Use analysisApi instead of generic api
+  console.log("API is hitting.")
+  const { data } = await analysisApi.get(`/verify/${reportHash}`);
+  console.log(data);
+  return data;
+};
 
 // GET /reports/:userId
 export const getUserReports = async (userId) => {
-  const { data } = await api.get(`/reports/${userId}`)
-  return data
-}
+  // CHANGE: Use analysisApi instead of generic api
+  console.log("Getting history of uploads...");
+  const { data } = await analysisApi.get(`/reports/${userId}`);
+  console.log(data);
+  return data;
+};
 
-// GET /download/:id  — returns URL
+// GET /download/:id — returns URL
 export const getDownloadUrl = (reportId) =>
-  `http://localhost:5000/download/${reportId}`
+  `http://localhost:5000/download/${reportId}`;
