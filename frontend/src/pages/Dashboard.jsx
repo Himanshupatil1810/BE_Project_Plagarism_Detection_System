@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { BarChart2, Clock, CheckCircle, AlertTriangle, Shield, Zap, FileText, X } from 'lucide-react'
 import FileUpload from '../components/FileUpload.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { checkPlagiarism } from '../api/plagiarismApi.js'
-import { saveToHistory, loadHistory } from '../utils/mockData.js'
+// Add getUserReports to the curly braces
+import { checkPlagiarism, getUserReports } from '../api/plagiarismApi.js'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -16,14 +16,30 @@ export default function Dashboard() {
   const [stats,   setStats]   = useState({ total: 0, flagged: 0, clean: 0, onChain: 0 })
 
   useEffect(() => {
-    const history = loadHistory(user.user_id)
-    setStats({
-      total:   history.length,
-      flagged: history.filter((h) => (h.overall_similarity_score || 0) > 0.4).length,
-      clean:   history.filter((h) => (h.overall_similarity_score || 0) <= 0.4).length,
-      onChain: history.filter((h) => h.blockchain_data).length,
-    })
-  }, [user.user_id])
+  const fetchDatabaseStats = async () => {
+    try {
+      // Ensure getUserReports is now imported so this line works
+      const data = await getUserReports(user.user_id);
+      const reports = data.reports || [];
+
+      setStats({
+        total: reports.length,
+        // item.report[4] is overall_score
+        flagged: reports.filter((item) => (item.report[4] || 0) > 0.4).length,
+        // item.report[4] is overall_score
+        clean: reports.filter((item) => (item.report[4] || 0) <= 0.4).length,
+        // item.report[9] is blockchain_tx_hash
+        onChain: reports.filter((item) => item.report[9]).length,
+      });
+    } catch (err) {
+      console.error("Failed to fetch database stats:", err);
+    }
+  };
+
+  if (user?.user_id) {
+    fetchDatabaseStats();
+  }
+}, [user.user_id]);
 
   const handleCheck = async () => {
     if (!file) return
@@ -48,7 +64,6 @@ export default function Dashboard() {
         },
       }
 
-      saveToHistory(user.user_id, result)
       // Store latest result for the Results page
       sessionStorage.setItem('chainguard_latest', JSON.stringify(result))
       navigate('/results')
