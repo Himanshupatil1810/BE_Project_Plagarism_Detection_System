@@ -14,19 +14,39 @@ export default function History() {
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchReports = async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true)
-    try {
-      const data = await getUserReports(user.id)
-      setReports(Array.isArray(data) ? data : data.reports || [])
-    } catch {
-      // Fallback to localStorage history
-      setReports(loadHistory(user.id))
-    }
-    setLoading(false)
-    setRefreshing(false)
+  if (showRefresh) setRefreshing(true)
+  try {
+    const data = await getUserReports(user.user_id)
+    
+    // Access the 'reports' key from your console output
+    const backendReports = data.reports || []
+
+    // Map the nested objects into a flat structure the table expects
+    const formattedReports = backendReports.map(item => ({
+      // Data from the 'submission' part
+      id: item.submission[0],
+      filename: item.submission[1],
+      user_id: item.submission[4],
+      status: item.submission[6],
+      timestamp: item.submission[7],
+      
+      // Data from the 'report' part
+      report_id: item.report[1],
+      overall_similarity_score: item.report[4],
+      blockchain_data: item.report[9],
+      ipfs_hash: item.report[10]
+    }))
+
+    setReports(formattedReports)
+  } catch (error) {
+    console.error("Fetch error:", error)
+    setReports(loadHistory(user.user_id))
+  }
+  setLoading(false)
+  setRefreshing(false)
   }
 
-  useEffect(() => { fetchReports() }, [user.id])
+  useEffect(() => { fetchReports() }, [user.user_id])
 
   const viewReport = (r) => {
     sessionStorage.setItem('chainguard_latest', JSON.stringify(r))
@@ -102,50 +122,21 @@ export default function History() {
               </thead>
               <tbody>
                 {reports.map((r, i) => {
-                  const score  = Math.round((r.overall_similarity_score || 0) * 100)
-                  const risk   = score > 70 ? 'High' : score > 40 ? 'Medium' : 'Low'
-                  const rId    = r.report_id || r.id || ''
-                  const scoreColor =
-                    risk === 'High' ? 'var(--danger)' : risk === 'Medium' ? 'var(--warn)' : 'var(--accent)'
+                  const score = Math.round((r.overall_similarity_score || 0) * 100)
+                  const risk = score > 70 ? 'High' : score > 40 ? 'Medium' : 'Low'
+                  const rId = r.report_id
 
                   return (
                     <tr key={i}>
-                      <td>
-                        <span
-                          className="font-jetbrains text-app3"
-                          style={{ fontSize: 11 }}
-                          title={rId}
-                        >
-                          {rId.slice(0, 22)}{rId.length > 22 ? '…' : ''}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="text-app" style={{ fontSize: 13 }}>
-                          {r.filename || r._filename || 'document'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="text-app2" style={{ fontSize: 12 }}>
-                          {new Date(r._savedAt || r.timestamp || Date.now()).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className="font-jetbrains font-bold"
-                          style={{ fontSize: 14, color: scoreColor }}
-                        >
-                          {score}%
-                        </span>
-                      </td>
+                      <td>{rId.slice(0, 15)}...</td>
+                      <td>{r.filename}</td>
+                      <td>{new Date(r.timestamp).toLocaleDateString()}</td>
+                      <td>{score}%</td>
                       <td><RiskBadge level={risk} /></td>
                       <td>
-                        {r.blockchain_data || r.blockchain ? (
-                          <span className="badge badge-verified">
-                            <Shield size={9} /> Yes
-                          </span>
-                        ) : (
-                          <span className="text-app3" style={{ fontSize: 12 }}>—</span>
-                        )}
+                        {r.blockchain ? (
+                          <span className="badge badge-verified"><Shield size={9} /> Yes</span>
+                        ) : "—"}
                       </td>
                       <td>
                         <div className="flex items-center gap-2">

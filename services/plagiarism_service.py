@@ -272,18 +272,19 @@ class PlagiarismService:
 
     def get_user_reports(self, user_id):
         """Get all reports for a specific user"""
-        # Use fresh connection for thread safety
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        # Get user submissions
+        # 1. Get user submissions
         cursor.execute("SELECT * FROM user_submissions WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
         submissions = cursor.fetchall()
         
         reports = []
         for submission in submissions:
-            if submission[5]:  # report_id exists
-                cursor.execute("SELECT * FROM plagiarism_reports WHERE id = ?", (submission[5],))
+            report_id_str = submission[5]  # This is the "PLAG_..." string
+            if report_id_str:
+                # FIX: Match against 'report_hash' (string), NOT 'id' (integer)
+                cursor.execute("SELECT * FROM plagiarism_reports WHERE report_hash = ?", (report_id_str,))
                 report = cursor.fetchone()
                 if report:
                     reports.append({

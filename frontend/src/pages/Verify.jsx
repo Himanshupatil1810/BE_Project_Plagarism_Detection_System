@@ -13,34 +13,31 @@ export default function Verify() {
     if (!h) return
     setLoading(true); setError(''); setResult(null)
     try {
-      const data = await verifyReport(h)
-      setResult(data)
-    } catch {
-      // Demo fallback — simulate a verified on-chain response
-      setResult({
-        exists: true,
-        verified: true,
-        metadata: {
-          report_id:        h,
-          verified_at:      new Date().toISOString(),
-          similarity_score: '0.32 (32%)',
-          verified_by:      'Ethereum Mainnet',
-          ipfs_cid:         `Qm${Array.from({ length: 20 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZabcde'[Math.floor(Math.random()*28)]).join('')}`,
-        },
-      })
+      const response = await verifyReport(h)
+      
+      // FIX: Map the nested blockchain_verification object to the result state
+      if (response && response.blockchain_verification) {
+        setResult({
+          ...response.blockchain_verification,
+          // Merge report_data fields if you want to show them too
+          report_id: response.report_data ? response.report_data[1] : h 
+        })
+      } else {
+        setError('Unexpected response format from server.')
+      }
+    } catch (err) {
+      setError('Connection to verification server failed.')
+      console.error(err)
     }
     setLoading(false)
   }
 
-  const LABEL_MAP = {
+const LABEL_MAP = {
     report_id:        'Report ID',
-    verified_at:      'Verified At',
-    similarity_score: 'Similarity Score',
-    verified_by:      'Verified By',
-    ipfs_cid:         'IPFS CID',
-    block_number:     'Block Number',
-    transaction_hash: 'Transaction Hash',
-    timestamp:        'Timestamp',
+    plagiarism_score: 'Similarity Score', // From your metadata object
+    total_sources:    'Sources Scanned',   // From your metadata object
+    timestamp:        'Anchored At',
+    document_hash:    'Document Fingerprint',
   }
 
   return (

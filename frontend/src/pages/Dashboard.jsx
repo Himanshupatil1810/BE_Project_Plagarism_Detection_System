@@ -4,7 +4,7 @@ import { BarChart2, Clock, CheckCircle, AlertTriangle, Shield, Zap, FileText, X 
 import FileUpload from '../components/FileUpload.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { checkPlagiarism } from '../api/plagiarismApi.js'
-import { generateMockResult, saveToHistory, loadHistory } from '../utils/mockData.js'
+import { saveToHistory, loadHistory } from '../utils/mockData.js'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -16,32 +16,47 @@ export default function Dashboard() {
   const [stats,   setStats]   = useState({ total: 0, flagged: 0, clean: 0, onChain: 0 })
 
   useEffect(() => {
-    const history = loadHistory(user.id)
+    const history = loadHistory(user.user_id)
     setStats({
       total:   history.length,
       flagged: history.filter((h) => (h.overall_similarity_score || 0) > 0.4).length,
       clean:   history.filter((h) => (h.overall_similarity_score || 0) <= 0.4).length,
       onChain: history.filter((h) => h.blockchain_data).length,
     })
-  }, [user.id])
+  }, [user.user_id])
 
   const handleCheck = async () => {
     if (!file) return
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
 
-    let result
     try {
-      result = await checkPlagiarism(file, user.id)
-    } catch {
-      // Backend offline → use mock result for demo
-      result = generateMockResult(file.name, user.id)
-    }
+      // Wait for real backend result from Flask /check
+      const apiResult = await checkPlagiarism(file, user.user_id)
 
-    saveToHistory(user.id, result)
-    // Store latest result for the Results page
-    sessionStorage.setItem('chainguard_latest', JSON.stringify(result))
-    navigate('/results')
-    setLoading(false)
+      // Normalize minimal Flask response into the shape the UI expects
+      const result = {
+        ...apiResult,
+        user_id: user.user_id,
+        filename: file.name,
+        // Map Flask's overall_score to overall_similarity_score used in UI
+        overall_similarity_score: apiResult.overall_similarity_score ?? apiResult.overall_score ?? 0,
+        // Map blockchain_verification/ipfs_storage into blockchain_data for UI
+        blockchain_data: apiResult.blockchain_data ?? {
+          ...apiResult.blockchain_verification,
+          ...apiResult.ipfs_storage,
+        },
+      }
+
+      saveToHistory(user.user_id, result)
+      // Store latest result for the Results page
+      sessionStorage.setItem('chainguard_latest', JSON.stringify(result))
+      navigate('/results')
+    } catch (err) {
+      setError(err?.message || 'Failed to analyze document. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const STAT_CARDS = [
