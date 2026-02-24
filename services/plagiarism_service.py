@@ -120,6 +120,20 @@ class PlagiarismService:
             report_type="detailed"
         )
         
+        # The frontend needs this key to show the text in the 'Document' tab
+        report["document_text"] = uploaded_text
+
+        # Normalize sources as a flat list of simple objects for the frontend
+        report["sources"] = [
+            {
+                "title": r.get("title"),
+                "similarity": r.get("similarity"),
+                "method": r.get("method"),
+            }
+            for r in similarity_results
+            if r.get("similarity", 0) > 0.1
+        ]
+            
         # Step 5: Store in database
         self._store_report_in_database(report, document_hash, similarity_results)
         

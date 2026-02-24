@@ -92,6 +92,10 @@ def check_plagiarism():
             "overall_score": report["overall_score"],
             "plagiarism_level": report["plagiarism_level"],
             "total_sources_checked": report["total_sources_checked"],
+            # Include full UI-needed fields so React can render Sources/Document tabs
+            "sources": report.get("sources", []),
+            "plagiarized_sections": report.get("plagiarized_sections", []),
+            "document_text": report.get("document_text", ""),
             "blockchain_verification": report.get("blockchain_verification"),
             "ipfs_storage": report.get("ipfs_storage"),
             "report_url": f"/reports/{report['report_id']}",

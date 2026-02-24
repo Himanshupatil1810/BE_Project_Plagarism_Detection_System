@@ -47,28 +47,27 @@ export default function Dashboard() {
     setError('')
 
     try {
-      // Wait for real backend result from Flask /check
+      // 1. Get the data from Flask
       const apiResult = await checkPlagiarism(file, user.user_id)
+      
+      // 2. ADD THIS LOG HERE
+      console.log("RAW FLASK RESPONSE:", apiResult)
 
-      // Normalize minimal Flask response into the shape the UI expects
       const result = {
         ...apiResult,
-        user_id: user.user_id,
-        filename: file.name,
-        // Map Flask's overall_score to overall_similarity_score used in UI
-        overall_similarity_score: apiResult.overall_similarity_score ?? apiResult.overall_score ?? 0,
-        // Map blockchain_verification/ipfs_storage into blockchain_data for UI
-        blockchain_data: apiResult.blockchain_data ?? {
-          ...apiResult.blockchain_verification,
-          ...apiResult.ipfs_storage,
-        },
-      }
+        // Explicitly normalize keys for the UI
+        sources: apiResult.sources || [],
+        sections: apiResult.sections || apiResult.plagiarized_sections || [],
+        document_text: apiResult.document_text || apiResult.content || apiResult.text || '',
+        overall_similarity_score: apiResult.overall_score || 0,
+        blockchain_data: apiResult.blockchain_verification || {}
+      };
 
-      // Store latest result for the Results page
       sessionStorage.setItem('chainguard_latest', JSON.stringify(result))
       navigate('/results')
     } catch (err) {
-      setError(err?.message || 'Failed to analyze document. Please try again.')
+      console.error("Full Error Object:", err)
+      setError(err?.message || 'Failed to analyze document.')
     } finally {
       setLoading(false)
     }

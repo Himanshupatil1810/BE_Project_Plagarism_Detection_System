@@ -20,7 +20,15 @@ export default function ReportDetails() {
 
   useEffect(() => {
     const raw = sessionStorage.getItem('chainguard_latest')
-    if (raw) { try { setResult(JSON.parse(raw)) } catch {} }
+    if (raw) { 
+      try { 
+        const parsed = JSON.parse(raw);
+        console.log("Loaded Report:", parsed); // Always log this to see what's actually there
+        setResult(parsed);
+      } catch (e) {
+        console.error("Failed to parse report data from session:", e);
+      } 
+    }
   }, [])
 
   if (!result) {
@@ -42,10 +50,11 @@ export default function ReportDetails() {
     )
   }
 
-  const score      = Math.round((result.overall_similarity_score || 0) * 100)
+  const score    = Math.round((result.overall_similarity_score || result.overall_score || 0) * 100);
   const risk       = score > 70 ? 'High' : score > 40 ? 'Medium' : 'Low'
-  const sources    = result.sources || result.plagiarized_sources || []
-  const sections   = result.plagiarized_sections || []
+  const sources = result.sources || [];
+  const sections = result.sections || result.plagiarized_sections || [];
+  const docText = result.document_text || result.content || result.text || "";
   const blockchain = result.blockchain_data || result.blockchain
   const reportId   = result.report_id || result.id || ''
 
@@ -211,7 +220,7 @@ export default function ReportDetails() {
               </span>
             ))}
           </div>
-          <DocumentViewer text={result.document_text || result.text} sections={sections} />
+          <DocumentViewer text={docText} sections={sections} />
         </div>
       )}
 
