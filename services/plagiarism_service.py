@@ -35,8 +35,10 @@ class PlagiarismService:
         uploaded_text = read_file(uploaded_file)
         cleaned_text = clean_text(uploaded_text)
         
-        # Generate document hash
-        document_hash = hashlib.sha256(uploaded_text.encode('utf-8')).hexdigest()
+        # Generate document hash (raw file bytes) for blockchain integrity checks
+        with open(uploaded_file, 'rb') as f:
+            uploaded_bytes = f.read()
+        document_hash = hashlib.sha256(uploaded_bytes).hexdigest()
         
         # === START OF "THE BIG CHANGE" ===
         
@@ -139,7 +141,7 @@ class PlagiarismService:
         
         # Step 6: Store on blockchain if enabled
         if store_on_blockchain:
-            blockchain_result = self.blockchain_service.store_report_on_blockchain(report, uploaded_text)
+            blockchain_result = self.blockchain_service.store_report_on_blockchain(report, uploaded_bytes)
             if blockchain_result and blockchain_result.get("status") == "success":
                 report["blockchain_verification"] = blockchain_result
                 # Update database with blockchain info

@@ -6,7 +6,7 @@ export default function BlockchainBadge({ data }) {
 
   const rows = [
     { label: 'Transaction Hash', key: 'transaction_hash', Icon: Hash },
-    { label: 'IPFS CID',         key: 'ipfs_cid',         Icon: Database },
+    { label: 'IPFS Storage',    key: 'ipfs_cid',         Icon: Database },
     { label: 'Block Number',     key: 'block_number',     Icon: Layers },
   ].filter((r) => data[r.key])
 
@@ -54,7 +54,21 @@ export default function BlockchainBadge({ data }) {
               className="font-jetbrains text-app break-all flex items-start"
               style={{ fontSize: 12 }}
             >
-              <span className="flex-1">{String(data[key])}</span>
+              <span className="flex-1">
+                {key === 'ipfs_cid' ? (
+                  <a
+                    href={`http://127.0.0.1:8080/ipfs/${String(data[key])}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'inherit', textDecoration: 'underline' }}
+                    title="Open via local IPFS gateway"
+                  >
+                    {String(data[key])}
+                  </a>
+                ) : (
+                  String(data[key])
+                )}
+              </span>
               <CopyButton text={String(data[key])} />
             </div>
           </div>
