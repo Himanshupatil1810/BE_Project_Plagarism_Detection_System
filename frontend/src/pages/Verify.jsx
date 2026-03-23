@@ -1,17 +1,22 @@
 import { useState } from 'react'
-import { Search, CheckCircle, XCircle, Shield, Hash } from 'lucide-react'
+import { Search, CheckCircle, XCircle, Shield, Hash, AlertTriangle } from 'lucide-react'
 import { verifyReport } from '../api/plagiarismApi.js'
+import { CopyButton } from '../components/Badges.jsx'
 
 export default function Verify() {
   const [hash,    setHash]    = useState('')
   const [loading, setLoading] = useState(false)
   const [result,  setResult]  = useState(null)
   const [error,   setError]   = useState('')
+  const [file, setFile] = useState(null)
+  const [integrityStatus, setIntegrityStatus] = useState(null) // 'Match' | 'Tampered' | null
 
   const verify = async () => {
     const h = hash.trim()
     if (!h) return
     setLoading(true); setError(''); setResult(null)
+    setFile(null)
+    setIntegrityStatus(null)
     try {
       const response = await verifyReport(h)
       
@@ -20,7 +25,8 @@ export default function Verify() {
         setResult({
           ...response.blockchain_verification,
           // Merge report_data fields if you want to show them too
-          report_id: response.report_data ? response.report_data[1] : h 
+          report_id: response.report_data ? response.report_data[1] : h,
+          ipfs_hash: response.report_data ? response.report_data[10] : ''
         })
       } else {
         setError('Unexpected response format from server.')
@@ -38,6 +44,36 @@ const LABEL_MAP = {
     total_sources:    'Sources Scanned',   // From your metadata object
     timestamp:        'Anchored At',
     document_hash:    'Document Fingerprint',
+    ipfs_hash:        'Verified Data Source (IPFS)',
+  }
+
+  const sha256Hex = async (arrayBuffer) => {
+    const subtle = window.crypto?.subtle
+    if (!subtle) throw new Error('WebCrypto is not available in this browser context.')
+    const digestBuffer = await subtle.digest('SHA-256', arrayBuffer)
+    const bytes = new Uint8Array(digestBuffer)
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  }
+
+  const handleIntegrityFile = async (selectedFile) => {
+    if (!selectedFile) return
+    setFile(selectedFile)
+    setIntegrityStatus(null)
+
+    try {
+      const buf = await selectedFile.arrayBuffer()
+      const computedHash = await sha256Hex(buf)
+      const expectedHash = String(result?.document_hash || '').toLowerCase()
+      const actualHash = String(computedHash || '').toLowerCase()
+
+      setIntegrityStatus(actualHash && expectedHash && actualHash === expectedHash ? 'Match' : 'Tampered')
+    } catch (e) {
+      console.error(e)
+      setError('Could not compute SHA-256 hash for integrity check in this browser.')
+      setIntegrityStatus(null)
+    }
   }
 
   return (
@@ -131,20 +167,99 @@ const LABEL_MAP = {
             </div>
 
             {/* Metadata rows */}
-            {result.metadata &&
-              Object.entries(result.metadata).map(([key, val]) => (
-                <div key={key} className="flex gap-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <div
-                    className="font-jetbrains text-app3 uppercase flex-shrink-0"
-                    style={{ fontSize: 10, letterSpacing: '0.5px', minWidth: 130, paddingTop: 2 }}
-                  >
-                    {LABEL_MAP[key] || key.replace(/_/g, ' ')}
-                  </div>
-                  <div className="font-jetbrains text-app break-all" style={{ fontSize: 12 }}>
-                    {String(val)}
-                  </div>
+            {(
+              (() => {
+                const meta = result.metadata || {}
+                const entries = Object.entries(meta)
+                if (result.document_hash) entries.push(['document_hash', result.document_hash])
+                if (result.ipfs_hash) entries.push(['ipfs_hash', result.ipfs_hash])
+                return entries
+              })()
+            ).map(([key, val]) => (
+              <div key={key} className="flex gap-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div
+                  className="font-jetbrains text-app3 uppercase flex-shrink-0"
+                  style={{ fontSize: 10, letterSpacing: '0.5px', minWidth: 130, paddingTop: 2 }}
+                >
+                  {LABEL_MAP[key] || key.replace(/_/g, ' ')}
                 </div>
-              ))}
+                <div className="font-jetbrains text-app break-all" style={{ fontSize: 12 }}>
+                  {key === 'ipfs_hash' ? (
+                    <>
+                      <a
+                        href={`http://127.0.0.1:8080/ipfs/${String(val)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'inherit', textDecoration: 'underline' }}
+                        title="Open via local IPFS gateway"
+                      >
+                        {String(val)}
+                      </a>
+                      <CopyButton text={String(val)} />
+                    </>
+                  ) : (
+                    String(val)
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {result.ipfs_hash && (
+              <div className="text-app3 mt-3" style={{ fontSize: 11 }}>
+                Note: This CID serves as the decentralized immutable address for this specific report's metadata.
+              </div>
+            )}
+
+            {/* Integrity check upload (only after successful blockchain lookup) */}
+            {result.verified && (
+              <div className="mt-5">
+                <div className="font-syne font-bold text-app mb-3" style={{ fontSize: 14 }}>
+                  Upload Document for Integrity Check
+                </div>
+
+                <input
+                  type="file"
+                  className="form-input"
+                  onChange={(e) => handleIntegrityFile(e.target.files?.[0] || null)}
+                  style={{
+                    background: 'var(--bg3)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                  }}
+                />
+
+                {file && (
+                  <div className="text-app3 mt-2" style={{ fontSize: 11 }}>
+                    Selected: <span className="font-jetbrains">{file.name}</span>
+                  </div>
+                )}
+
+                {integrityStatus && (
+                  <div
+                    className="mt-4 flex items-center gap-3"
+                    style={{
+                      color: integrityStatus === 'Match' ? 'var(--accent)' : 'var(--danger)',
+                    }}
+                  >
+                    {integrityStatus === 'Match' ? (
+                      <>
+                        <Shield size={18} color="var(--accent)" />
+                        <div className="font-syne font-bold text-app" style={{ fontSize: 14 }}>
+                          Integrity Verified
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={18} color="var(--danger)" />
+                        <div className="font-syne font-bold text-app" style={{ fontSize: 14 }}>
+                          Document Modified
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

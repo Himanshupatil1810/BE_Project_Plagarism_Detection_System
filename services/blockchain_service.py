@@ -2,7 +2,7 @@ import json
 import hashlib
 from datetime import datetime
 from web3 import Web3
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import os
 
 from web3.middleware import geth_poa_middleware
@@ -90,25 +90,33 @@ class BlockchainService:
         report_string = json.dumps(report_data, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(report_string.encode()).hexdigest()
 
-    def generate_document_hash(self, document_content: str) -> str:
+    def generate_document_hash(self, document_content: Union[str, bytes, bytearray]) -> str:
         """
         Generate SHA-256 hash of the document content.
         
         Args:
-            document_content: Raw document text content
+            document_content: Raw document content (either bytes or text)
             
         Returns:
             SHA-256 hash string
         """
-        return hashlib.sha256(document_content.encode('utf-8')).hexdigest()
+        if isinstance(document_content, (bytes, bytearray)):
+            data = bytes(document_content)
+        else:
+            data = str(document_content).encode('utf-8')
+        return hashlib.sha256(data).hexdigest()
 
-    def store_report_on_blockchain(self, report_data: Dict[str, Any], document_content: str) -> Optional[Dict[str, Any]]:
+    def store_report_on_blockchain(
+        self,
+        report_data: Dict[str, Any],
+        document_content: Union[str, bytes, bytearray],
+    ) -> Optional[Dict[str, Any]]:
         """
         Store plagiarism report on blockchain.
         
         Args:
             report_data: Plagiarism report data
-            document_content: Original document content
+            document_content: Original document content (bytes recommended)
             
         Returns:
             Transaction details or None if blockchain is not configured

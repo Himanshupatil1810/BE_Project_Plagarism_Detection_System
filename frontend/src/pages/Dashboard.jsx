@@ -60,7 +60,11 @@ export default function Dashboard() {
         sections: apiResult.sections || apiResult.plagiarized_sections || [],
         document_text: apiResult.document_text || apiResult.content || apiResult.text || '',
         overall_similarity_score: apiResult.overall_score || 0,
-        blockchain_data: apiResult.blockchain_verification || {}
+        blockchain_data: {
+          ...(apiResult.blockchain_verification || {}),
+          // BlockchainBadge expects `ipfs_cid`
+          ipfs_cid: apiResult.ipfs_storage?.ipfs_hash || apiResult.ipfs_cid || ''
+        }
       };
 
       sessionStorage.setItem('chainguard_latest', JSON.stringify(result))
