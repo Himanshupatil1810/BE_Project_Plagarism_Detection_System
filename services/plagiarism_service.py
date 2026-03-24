@@ -1,5 +1,6 @@
 import os
 import hashlib
+import json
 from preprocessing.file_parser import read_file
 from preprocessing.text_cleaner import clean_text
 from models.tfidf_checker import TFIDFChecker
@@ -208,14 +209,50 @@ class PlagiarismService:
         print(f"[Detect] Stage 2 complete: Found {len(results)} total matches.")
         return results
 
+    # def _store_report_in_database(self, report, document_hash, similarity_results):
+    #     """Store plagiarism report in database"""
+    #     # Calculate average scores
+    #     tfidf_scores = [r["similarity"] for r in similarity_results if r["method"] == "tfidf"]
+    #     bert_scores = [r["similarity"] for r in similarity_results if r["method"] == "bert"]
+        
+    #     avg_tfidf = sum(tfidf_scores) / len(tfidf_scores) if tfidf_scores else 0
+    #     avg_bert = sum(bert_scores) / len(bert_scores) if bert_scores else 0
+        
+    #     # Prepare data for database
+    #     sources_json = str(report.get("sources", []))
+    #     metadata_json = str({
+    #         "plagiarized_sections": report.get("plagiarized_sections", []),
+    #         "document_stats": report.get("document_stats", {}),
+    #         "recommendations": report.get("recommendations", [])
+    #     })
+        
+    #     self.db.add_plagiarism_report(
+    #         report_hash=report["report_id"],
+    #         document_hash=document_hash,
+    #         document_content="",  # Don't store full content in DB
+    #         overall_score=report["overall_score"],
+    #         tfidf_score=avg_tfidf,
+    #         bert_score=avg_bert,
+    #         sources=sources_json,
+    #         metadata=metadata_json
+    #     )
+
     def _store_report_in_database(self, report, document_hash, similarity_results):
-        """Store plagiarism report in database"""
-        # Calculate average scores
+        """Store plagiarism report in database with improved scoring"""
+        
+        # Get all scores by method
         tfidf_scores = [r["similarity"] for r in similarity_results if r["method"] == "tfidf"]
         bert_scores = [r["similarity"] for r in similarity_results if r["method"] == "bert"]
         
-        avg_tfidf = sum(tfidf_scores) / len(tfidf_scores) if tfidf_scores else 0
-        avg_bert = sum(bert_scores) / len(bert_scores) if bert_scores else 0
+        # NEW FORMULA: Use MAX instead of AVG to find the strongest match
+        # This prevents the score from being lowered by documents that don't match
+        max_tfidf = max(tfidf_scores) if tfidf_scores else 0
+        max_bert = max(bert_scores) if bert_scores else 0
+        
+        # Calculate weighted overall score (40% TF-IDF + 60% BERT)
+        # Multiplying by 100 converts it to a percentage (e.g., 0.85 -> 85.0)
+        calculated_overall = (max_tfidf * 0.4) + (max_bert * 0.6)
+        report["overall_score"] = round(calculated_overall, 4)
         
         # Prepare data for database
         sources_json = str(report.get("sources", []))
@@ -225,13 +262,14 @@ class PlagiarismService:
             "recommendations": report.get("recommendations", [])
         })
         
+        # Store in database using the highest scores found
         self.db.add_plagiarism_report(
             report_hash=report["report_id"],
             document_hash=document_hash,
             document_content="",  # Don't store full content in DB
             overall_score=report["overall_score"],
-            tfidf_score=avg_tfidf,
-            bert_score=avg_bert,
+            tfidf_score=max_tfidf, # Storing the highest individual scores
+            bert_score=max_bert,
             sources=sources_json,
             metadata=metadata_json
         )
