@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS, cross_origin
 from services.plagiarism_service import PlagiarismService
+from services.report_export_service import ReportExportService
 from services.data_service import Database
 import os
 import json
 from datetime import datetime
+import ast
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
@@ -22,6 +25,105 @@ UPLOAD_FOLDER = "uploads"
 REPORTS_FOLDER = "reports"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(REPORTS_FOLDER, exist_ok=True)
+
+export_service = ReportExportService()
+
+# @app.route("/api/reports/<report_id>/download", methods=["GET"])
+# def download_pdf_report(report_id):
+#     try:
+#         report = db.get_plagiarism_report(report_id)
+#         if not report:
+#             return jsonify({"status": "error", "error": "Report not found"}), 404
+
+#         # --- Safe Metadata Parsing ---
+#         raw_meta = report[7]
+#         if isinstance(raw_meta, str):
+#             # Convert SQLite string to Python Dict
+#             metadata_dict = json.loads(raw_meta.replace("'", '"'))
+#         else:
+#             metadata_dict = raw_meta if raw_meta else {}
+
+#         # --- Safe Sources Parsing ---
+#         raw_sources = report[6]
+#         if isinstance(raw_sources, str):
+#             sources_list = json.loads(raw_sources.replace("'", '"'))
+#         else:
+#             sources_list = raw_sources if raw_sources else []
+
+#         # Construct the clean dictionary for the PDF service
+#         report_data = {
+#             "report_id": report[1],
+#             "overall_score": report[4],
+#             "document_text": report[3],
+#             "sources": sources_list, # This is a LIST of DICTS
+#             "metadata": metadata_dict # This is a DICT
+#         }
+
+#         pdf_filename = f"plagiarism_report_{report_id}.pdf"
+#         pdf_path = os.path.join(REPORTS_FOLDER, pdf_filename)
+        
+#         export_service.generate_pdf_report(report_data, pdf_path)
+#         return send_file(pdf_path, as_attachment=True, download_name=pdf_filename)
+        
+#     except Exception as e:
+#         return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route("/api/reports/<report_id>/download", methods=["GET"])
+def download_pdf_report(report_id):
+    try:
+        report = db.get_plagiarism_report(report_id)
+
+        if not report:
+            return jsonify({"status": "error", "error": "Report not found"}), 404
+
+        # --- CORRECT METADATA INDEX ---
+        raw_meta = report[8]
+        metadata_dict = {}
+
+        print("RAW META TYPE:", type(raw_meta))
+
+        # --- SAFE PARSING ---
+        if isinstance(raw_meta, dict):
+            metadata_dict = raw_meta
+
+        elif isinstance(raw_meta, str):
+            try:
+                metadata_dict = ast.literal_eval(raw_meta)
+            except Exception as e:
+                print("Metadata parsing failed:", e)
+                metadata_dict = {}
+
+        # --- CLEAN BOM CHARACTERS ---
+        for sec in metadata_dict.get("plagiarized_sections", []):
+            if "text" in sec:
+                sec["text"] = sec["text"].replace("\ufeff", "")
+
+        print("PARSED METADATA KEYS:", metadata_dict.keys())
+
+        # --- CONSTRUCT REPORT DATA ---
+        report_data = {
+            "report_id": report[1],
+            "overall_score": report[4],
+            "document_text": report[3],
+            "metadata": metadata_dict
+        }
+
+        # --- GENERATE PDF ---
+        pdf_path = os.path.join(REPORTS_FOLDER, f"report_{report_id}.pdf")
+        export_service.generate_pdf_report(report_data, pdf_path)
+
+        return send_file(pdf_path, as_attachment=True)
+
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+
+
+
+
+
+
 
 @app.route("/", methods=["GET"])
 def home():
@@ -56,6 +158,7 @@ def check_plagiarism():
 
         # Get optional parameters
         user_id = request.form.get("user_id", "anonymous")
+        # blockchain on/off
         store_on_blockchain = request.form.get("store_on_blockchain", "true").lower() == "true"
         report_type = request.form.get("report_type", "detailed")
         

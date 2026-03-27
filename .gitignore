@@ -160,3 +160,6 @@ yarn.lock
 data/*.db-wal
 data/*.db-shm
 frontend/node_modules/
+
+/reports
+/uploads

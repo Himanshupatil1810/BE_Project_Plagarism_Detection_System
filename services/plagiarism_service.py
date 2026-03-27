@@ -113,7 +113,24 @@ class PlagiarismService:
         
         # === THIS IS THE ONE-LINE FIX ===
         similarity_results = self._run_detection_methods(uploaded_text, reference_files)
+
+        # === ADD THIS NEW LOGIC HERE ===
+        # Identify high-risk snippets for the 'Document' tab highlighting
+        # high_risk_snippets = []
+        # Identify high and medium risk snippets for highlighting
+        plagiarized_sections = []
+        for result in similarity_results:
+            score = result.get("similarity", 0)
+            # Get the matching content snippet
+            snippet = result.get("content", "")[:200] 
+            
+            if score > 0.8:
+                plagiarized_sections.append({"text": snippet, "risk": "High"})
+            elif score > 0.4:
+                plagiarized_sections.append({"text": snippet, "risk": "Medium"})
+
         # === END OF FIX ===
+        # Assign to the report object
         
         # Step 4: Generate comprehensive report
         report = self.report_service.generate_plagiarism_report(
@@ -122,8 +139,10 @@ class PlagiarismService:
             detection_methods=["TF-IDF", "BERT"],
             report_type="detailed"
         )
-        
+        # Assign the snippets to the report so the frontend can see them
+        # report["plagiarized_sections"] = high_risk_snippets
         # The frontend needs this key to show the text in the 'Document' tab
+        report["plagiarized_sections"] = plagiarized_sections
         report["document_text"] = uploaded_text
 
         # Normalize sources as a flat list of simple objects for the frontend
@@ -141,13 +160,16 @@ class PlagiarismService:
         self._store_report_in_database(report, document_hash, similarity_results)
         
         # Step 6: Store on blockchain if enabled
+        # blockchain on/off
         if store_on_blockchain:
             blockchain_result = self.blockchain_service.store_report_on_blockchain(report, uploaded_bytes)
             if blockchain_result and blockchain_result.get("status") == "success":
                 report["blockchain_verification"] = blockchain_result
                 # Update database with blockchain info
                 self._update_report_with_blockchain_info(report["report_id"], blockchain_result)
-        
+        else:
+            print("[App] Skipping Blockchain transaction to save gas (Testing Mode)")
+            report["blockchain_verification"] = {"status": "skipped", "reason": "Testing Mode"}
         # Step 7: Store in IPFS
         ipfs_result = self.ipfs_service.store_report(report)
         if ipfs_result and ipfs_result.get("status") == "success":
